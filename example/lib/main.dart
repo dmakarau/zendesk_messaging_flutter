@@ -120,6 +120,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
               ],
             ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () => ZendeskMessaging.show(fullScreen: false),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Open as sheet'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF03363D),
+              ),
+            ),
           ],
         ),
       ),
