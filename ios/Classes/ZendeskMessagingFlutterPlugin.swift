@@ -30,6 +30,7 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
             guard let channelKey = args?["channelKey"] as? String else {
                 return result(FlutterError(code: "INVALID_ARGS", message: "channelKey is required", details: nil))
             }
+            if Zendesk.instance != nil { return result(nil) }
             Zendesk.initialize(
                 withChannelKey: channelKey,
                 messagingFactory: DefaultMessagingFactory()
@@ -51,7 +52,9 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
                 return result(FlutterError(code: "NOT_INITIALIZED", message: "Call initialize() first", details: nil))
             }
             DispatchQueue.main.async {
-                UIApplication.shared.topViewController?.present(vc, animated: true)
+                let nav = UINavigationController(rootViewController: vc)
+                nav.modalPresentationStyle = .fullScreen
+                UIApplication.shared.topViewController?.present(nav, animated: true)
                 result(nil)
             }
 
