@@ -51,9 +51,10 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
             guard let vc = Zendesk.instance?.messaging?.messagingViewController() else {
                 return result(FlutterError(code: "NOT_INITIALIZED", message: "Call initialize() first", details: nil))
             }
+            let fullScreen = args?["fullScreen"] as? Bool ?? true
             DispatchQueue.main.async {
                 let nav = UINavigationController(rootViewController: vc)
-                nav.modalPresentationStyle = .fullScreen
+                nav.modalPresentationStyle = fullScreen ? .fullScreen : .pageSheet
                 UIApplication.shared.topViewController?.present(nav, animated: true)
                 result(nil)
             }

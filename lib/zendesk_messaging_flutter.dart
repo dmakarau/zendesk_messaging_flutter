@@ -19,8 +19,8 @@ class ZendeskMessaging {
     return _channel.invokeMethod('logoutUser');
   }
 
-  static Future<void> show() {
-    return _channel.invokeMethod('show');
+  static Future<void> show({bool fullScreen = true}) {
+    return _channel.invokeMethod('show', {'fullScreen': fullScreen});
   }
 
   static Future<int> getUnreadMessageCount() async {
