@@ -1,13 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:zendesk_messaging_flutter/zendesk_messaging_flutter.dart';
 
-// dmakarau — anonymous access, confirmed working with ZendeskSDKMessaging 2.38.1
-const _channelKey =
+const _iosChannelKey =
     'eyJzZXR0aW5nc191cmwiOiJodHRwczovL3o0bm5tdGVzdGFwcC56ZW5kZXNrLmNvbS9tb2JpbGVfc2RrX2FwaS9zZXR0aW5ncy8wMUVXSlRXQkpRMjlXRE5ZUEpORTIySkYzMy5qc29uIn0=';
+
+const _androidChannelKey =
+    'eyJzZXR0aW5nc191cmwiOiJodHRwczovL3o0bm5tdGVzdGFwcC56ZW5kZXNrLmNvbS9tb2JpbGVfc2RrX2FwaS9zZXR0aW5ncy8wMUhCQjBQVkNaTjIyWDc2SzlNTVZXUjRHQy5qc29uIn0=';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ZendeskMessaging.initialize(channelKey: _channelKey);
+  final channelKey = Platform.isAndroid ? _androidChannelKey : _iosChannelKey;
+  await ZendeskMessaging.initialize(channelKey: channelKey);
   runApp(const MyApp());
 }
 
