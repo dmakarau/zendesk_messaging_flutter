@@ -68,7 +68,7 @@ final channelKey = Platform.isAndroid ? _androidChannelKey : _iosChannelKey;
 - Double-init guard: `companion object { private var initialized = false }`
 - `show` calls `Zendesk.instance.messaging.showMessaging(activity)` — always full-screen Activity; `fullScreen` param is ignored silently
 - Event sink calls must be dispatched on main thread via `Handler(Looper.getMainLooper()).post`
-- SDK dependency: `zendesk.messaging:messaging-android:2.38.0` from JFrog
+- SDK dependency: `zendesk.messaging:messaging-android:2.38.+` from JFrog — minimum `2.38`, accepts any `2.38.x` patch
 
 ## Build Commands
 

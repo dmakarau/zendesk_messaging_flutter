@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
   s.dependency 'Flutter'
-  s.dependency 'ZendeskSDKMessaging', '~> 2.0'
+  s.dependency 'ZendeskSDKMessaging', '~> 2.38'
   s.platform         = :ios, '14.0'
 
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
