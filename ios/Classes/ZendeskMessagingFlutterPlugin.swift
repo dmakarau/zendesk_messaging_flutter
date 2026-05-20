@@ -73,24 +73,25 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
         guard let zendesk = Zendesk.instance else { return nil }
-        bridge.startObservingEvents(zendesk, observer: self) { [weak self] (event: Int, payload: Any?) in
-            switch event {
-            case 0: // unreadMessageCountChanged
-                let count = (payload as? ConversationUnreadCountChange)?.totalUnreadMessagesCount ?? 0
-                self?.eventSink?(["type": "unreadMessageCountChanged", "count": count])
-            case 3: // authenticationFailed
-                self?.eventSink?(["type": "authenticationFailed"])
-            default:
-                break
+        zendesk.addEventObserver(self) { [weak self] event in
+            guard let self = self else { return }
+            let sink = self.eventSink
+            DispatchQueue.main.async {
+                switch event {
+                case .сonversationUnreadCountChanged(id: _, timestamp: _, data: let data):
+                    sink?(["type": "unreadMessageCountChanged", "count": data.totalUnreadMessagesCount])
+                case .authenticationFailed:
+                    sink?(["type": "authenticationFailed"])
+                default:
+                    break
+                }
             }
         }
         return nil
     }
 
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
-        if let zendesk = Zendesk.instance {
-            bridge.stopObservingEvents(zendesk, observer: self)
-        }
+        Zendesk.instance?.removeEventObserver(self)
         eventSink = nil
         return nil
     }

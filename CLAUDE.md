@@ -57,8 +57,10 @@ final channelKey = Platform.isAndroid ? _androidChannelKey : _iosChannelKey;
 - `Zendesk.instance` is optional — check for `nil` before use
 - `show` wraps the messaging VC in `UINavigationController` so the close button renders correctly
 - `fullScreen` controls `modalPresentationStyle` (.fullScreen vs .pageSheet)
-- Events come as integer codes via `ZendeskBridge`: 0 = unreadMessageCountChanged, 3 = authenticationFailed
-- Dispatch event sink calls on main thread via `DispatchQueue.main`
+- Events use `Zendesk.instance.addEventObserver` directly (Swift enum API) — do NOT route through `ZendeskBridge`, which uses the deprecated ObjC enum and returns `NSNumber` payloads that cannot be cast to `ConversationUnreadCountChange`
+- `сonversationUnreadCountChanged` has labeled associated values (`id:`, `timestamp:`, `data:`) — wildcards require explicit labels: `case .сonversationUnreadCountChanged(id: _, timestamp: _, data: let data)`
+- Note: the `с` in `сonversationUnreadCountChanged` is Cyrillic, not ASCII — copy from source rather than typing
+- Capture `eventSink` as a local `let` before `DispatchQueue.main.async` to avoid `self` capture issues inside the async block
 
 ## Android Implementation Notes
 
