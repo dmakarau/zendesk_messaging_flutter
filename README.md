@@ -52,6 +52,8 @@ cd example && flutter run --dart-define-from-file=.dart_defines
 
 `.dart_defines` is gitignored — your keys stay local.
 
+**VS Code**: a `launch.json` is included — just add your `.dart_defines` file and hit Run.
+
 ### Dart
 
 ```dart

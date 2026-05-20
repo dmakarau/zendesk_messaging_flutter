@@ -77,6 +77,8 @@ cp example/.dart_defines.example example/.dart_defines
 # Run example app on connected device/emulator
 cd example && flutter run --dart-define-from-file=.dart_defines
 
+# Run from VS Code — launch.json is pre-configured, reads example/.dart_defines automatically
+
 # Build Android APK
 cd example && flutter build apk --dart-define-from-file=.dart_defines
 
