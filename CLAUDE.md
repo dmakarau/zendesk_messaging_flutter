@@ -101,6 +101,39 @@ flutter test
 
 Without these, the Android build will fail to resolve the `messaging-android` dependency.
 
+## Public API Coverage
+
+Overall: ~**15%** of the native SDK public API is currently implemented.
+
+Dev docs reference:
+- iOS: https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/
+- Android: https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/
+
+| Category | Total | Covered | % | Notes |
+|---|---|---|---|---|
+| Core (init, invalidate, getCurrentUser, loginUser, logoutUser) | 5 | 3 | 60% | Missing: `invalidate`, `getCurrentUser` |
+| UI / Navigation (`show` + `MessagingScreen` x4) | 5 | 1 | 20% | Missing: screen param, ExitAction |
+| Unread count (total + per-conversation) | 2 | 1 | 50% | Missing: per-conversation overload |
+| Conversation metadata (fields, tags, clears) | 6 | 0 | 0% | `setConversationFields`, `setConversationTags`, clears |
+| Events (24 types) | 24 | 2 | 8% | Only `unreadMessageCountChanged` + `authenticationFailed` |
+| Push notifications | 4 | 0 | 0% | Skip for simulator/emulator demos |
+| Delegates / URL interception | 1 | 0 | 0% | `MessagingDelegate.shouldHandleURL` |
+| Page view events | 1 | 0 | 0% | `sendPageViewEvent` |
+| **Total** | **48** | **7** | **~15%** | |
+
+### Demoable on simulator/emulator (no push required)
+
+Next-priority features — all work without a real device or push setup:
+
+1. **`MessagingScreen` navigation** — pass screen destination to `show()` ([iOS docs](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/multi_conversations_navigation_apis/), [Android docs](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/multi_conversations_navigation_apis/))
+2. **Conversation metadata** — `setConversationFields`, `setConversationTags`, clears ([iOS](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/conversation_fields_and_tags/), [Android](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/conversation_fields_and_tags/))
+3. **Full event forwarding** — 13 additional demoable event types ([iOS](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/zendesk_sdk_events/), [Android](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/zendesk_sdk_events/))
+4. **`getCurrentUser()`** — returns authenticated user details
+5. **`invalidate()`** — SDK teardown
+6. **`getUnreadMessageCount(conversationId:)`** — per-conversation unread count
+
+Implementing all 6 would bring coverage to ~**65%**.
+
 ## Commit Style
 
 Short imperative description, no ticket prefix (personal hackathon repo):

@@ -86,14 +86,36 @@ ZendeskMessaging.events.listen((event) {
 
 ### Full API
 
+#### Implemented
+
 | Method | Description |
 |---|---|
 | `initialize(channelKey:)` | Initialize the SDK. Call once at app start. |
 | `loginUser(jwt:)` | Authenticate a user with a JWT. |
 | `logoutUser()` | Log out the current user. |
 | `show({fullScreen})` | Present the native conversation UI. Pass `fullScreen: false` for a page sheet (iOS only). |
-| `getUnreadMessageCount()` | Returns total unread message count. |
-| `events` | Stream of SDK events (unread count changes, auth failures). |
+| `getUnreadMessageCount()` | Returns total unread message count across all conversations. |
+| `events` | Stream of `unreadMessageCountChanged` and `authenticationFailed` events. |
+
+#### Planned
+
+The native Zendesk SDKs expose a much broader API surface. Below is what's on the roadmap, grouped by category, with links to the official docs.
+
+**Navigation** ([iOS](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/multi_conversations_navigation_apis/) / [Android](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/multi_conversations_navigation_apis/))
+- `show(screen:)` — navigate to conversation list, most recent, new conversation, or a specific conversation by ID
+
+**Conversation metadata** ([iOS](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/conversation_fields_and_tags/) / [Android](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/conversation_fields_and_tags/))
+- `setConversationFields(fields:)`, `setConversationTags(tags:)`, `clearConversationFields()`, `clearConversationTags()`
+
+**Events** ([iOS](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/zendesk_sdk_events/) / [Android](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/zendesk_sdk_events/))
+- 22 additional event types: `connectionStatusChanged`, `conversationAdded`, `conversationStarted`, `conversationOpened`, `messagingOpened`, `messagingClosed`, `messagesShown`, `sendMessageFailed`, `conversationWithAgentRequested`, `conversationAgentAssigned`, `conversationServedByAgent`, `newConversationButtonClicked`, `postbackButtonClicked`, `articleClicked`, `articleBrowserClicked`, and more
+
+**Other**
+- `getCurrentUser()` — return authenticated user details
+- `getUnreadMessageCount(conversationId:)` — per-conversation unread count
+- `invalidate()` — tear down the SDK
+- `sendPageViewEvent(pageTitle:url:)` — Guide analytics
+- Push notifications — token registration + notification handling ([iOS](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/push_notifications/) / [Android](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/push_notifications/))
 
 ## Example App
 
