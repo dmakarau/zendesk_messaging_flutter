@@ -2,8 +2,6 @@
 
 A Flutter plugin for the Zendesk Messaging SDK (iOS + Android). Lets Flutter developers integrate Zendesk Messaging with 3 lines of Dart — no Xcode, no CocoaPods, no native code required.
 
-> **Hackathon prototype.** Built during the SDKs Hackathon May 2026.
-
 ## Installation
 
 Add to your `pubspec.yaml`:
@@ -97,9 +95,9 @@ ZendeskMessaging.events.listen((event) {
 | `getUnreadMessageCount()` | Returns total unread message count across all conversations. |
 | `events` | Stream of `unreadMessageCountChanged` and `authenticationFailed` events. |
 
-#### Planned
+#### Not yet implemented
 
-The native Zendesk SDKs expose a much broader API surface. Below is what's on the roadmap, grouped by category, with links to the official docs.
+The native Zendesk SDKs expose a broader API surface. Below is what's not yet covered, with links to the official docs.
 
 **Navigation** ([iOS](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/ios/multi_conversations_navigation_apis/) / [Android](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/sdks/android/multi_conversations_navigation_apis/))
 - `show(screen:)` — navigate to conversation list, most recent, new conversation, or a specific conversation by ID
