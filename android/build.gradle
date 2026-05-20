@@ -20,7 +20,7 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace 'com.zendesk.zendesk_messaging_flutter'
-    compileSdkVersion 33
+    compileSdkVersion 36
 
     defaultConfig {
         minSdkVersion 21
