@@ -31,3 +31,6 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 /build/
 /coverage/
+
+# Local channel keys — copy .dart_defines.example to .dart_defines and fill in
+example/.dart_defines

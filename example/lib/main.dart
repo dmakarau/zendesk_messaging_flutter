@@ -2,11 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:zendesk_messaging_flutter/zendesk_messaging_flutter.dart';
 
-const _iosChannelKey =
-    'eyJzZXR0aW5nc191cmwiOiJodHRwczovL3o0bm5tdGVzdGFwcC56ZW5kZXNrLmNvbS9tb2JpbGVfc2RrX2FwaS9zZXR0aW5ncy8wMUVXSlRXQkpRMjlXRE5ZUEpORTIySkYzMy5qc29uIn0=';
-
-const _androidChannelKey =
-    'eyJzZXR0aW5nc191cmwiOiJodHRwczovL3o0bm5tdGVzdGFwcC56ZW5kZXNrLmNvbS9tb2JpbGVfc2RrX2FwaS9zZXR0aW5ncy8wMUhCQjBQVkNaTjIyWDc2SzlNTVZXUjRHQy5qc29uIn0=';
+const _iosChannelKey = String.fromEnvironment('IOS_CHANNEL_KEY');
+const _androidChannelKey = String.fromEnvironment('ANDROID_CHANNEL_KEY');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
