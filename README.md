@@ -95,6 +95,15 @@ ZendeskMessaging.events.listen((event) {
 | `getUnreadMessageCount()` | Returns total unread message count. |
 | `events` | Stream of SDK events (unread count changes, auth failures). |
 
+## Example App
+
+The example app (`example/`) demonstrates the full flow:
+
+- **Login / Logout** — tap the person icon in the app bar to paste a JWT and authenticate; tap the logout icon to sign out
+- **Open conversation** — "Contact Support" button launches the native messaging UI full-screen
+- **Open as sheet** — "Open as sheet" presents it as a page sheet (iOS only)
+- **Unread badge** — red badge on the button updates when new messages arrive
+
 ## Requirements
 
 - iOS 14.0+
