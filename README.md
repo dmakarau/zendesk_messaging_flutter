@@ -23,12 +23,7 @@ CocoaPods pulls in `ZendeskSDKMessaging` automatically on the next iOS build.
 
 ### Android
 
-The Android SDK is hosted on an internal JFrog repository. Add credentials to `~/.gradle/gradle.properties`:
-
-```
-ARTIFACTORY_USERNAME=<your-username>
-ARTIFACTORY_API_KEY=<your-api-key>
-```
+The Android SDK is hosted on the public Zendesk Maven repository — no credentials required. The plugin's `build.gradle` already includes it.
 
 ## Usage
 

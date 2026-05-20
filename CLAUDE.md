@@ -68,7 +68,7 @@ final channelKey = Platform.isAndroid ? _androidChannelKey : _iosChannelKey;
 - Double-init guard: `companion object { private var initialized = false }`
 - `show` calls `Zendesk.instance.messaging.showMessaging(activity)` — always full-screen Activity; `fullScreen` param is ignored silently
 - Event sink calls must be dispatched on main thread via `Handler(Looper.getMainLooper()).post`
-- SDK dependency: `zendesk.messaging:messaging-android:2.38.+` from JFrog — minimum `2.38`, accepts any `2.38.x` patch
+- SDK dependency: `zendesk.messaging:messaging-android:2.38.+` from the public Zendesk Maven repo (`zendesk.jfrog.io/artifactory/repo`) — no credentials required
 
 ## Build Commands
 
@@ -90,18 +90,6 @@ cd example && flutter build ios --dart-define-from-file=.dart_defines
 # Run Dart tests
 flutter test
 ```
-
-## Android JFrog Credentials
-
-`messaging-android` is hosted on the internal JFrog repo (`zdrepo.jfrog.io`). Credentials must be set:
-
-```
-~/.gradle/gradle.properties:
-  ARTIFACTORY_USERNAME=<username>
-  ARTIFACTORY_API_KEY=<api_key>
-```
-
-Without these, the Android build will fail to resolve the `messaging-android` dependency.
 
 ## Public API Coverage
 

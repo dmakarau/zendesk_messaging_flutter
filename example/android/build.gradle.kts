@@ -4,11 +4,7 @@ allprojects {
         google()
         mavenCentral()
         maven {
-            url = uri("https://zdrepo.jfrog.io/zdrepo/repo/")
-            credentials {
-                username = (project.findProperty("ARTIFACTORY_USERNAME") as String?) ?: System.getenv("ARTIFACTORY_USERNAME") ?: ""
-                password = (project.findProperty("ARTIFACTORY_API_KEY") as String?) ?: System.getenv("ARTIFACTORY_API_KEY") ?: ""
-            }
+            url = uri("https://zendesk.jfrog.io/artifactory/repo")
         }
         maven { url = uri("https://storage.googleapis.com/download.flutter.io") }
     }
