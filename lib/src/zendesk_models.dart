@@ -108,7 +108,7 @@ sealed class ZendeskEvent {
     final type = map['type'] as String?;
     return switch (type) {
       'unreadMessageCountChanged' => UnreadMessageCountChangedEvent(
-          totalUnreadCount: map['totalUnreadCount'] as int? ?? map['count'] as int? ?? 0,
+          totalUnreadCount: map['totalUnreadCount'] as int? ?? 0,
           conversationId: map['conversationId'] as String?,
           unreadInConversation: map['unreadInConversation'] as int? ?? 0,
         ),
