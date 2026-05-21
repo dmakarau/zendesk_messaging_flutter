@@ -43,8 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     ZendeskMessaging.events.listen((event) {
-      if (event['type'] == 'unreadMessageCountChanged') {
-        setState(() => _unreadCount = event['count'] as int);
+      if (event is UnreadMessageCountChangedEvent) {
+        setState(() => _unreadCount = event.totalUnreadCount);
       }
     });
   }
@@ -120,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Image.network(
               'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Zendesk_logo.svg/320px-Zendesk_logo.svg.png',
               height: 48,
-              errorBuilder: (_, __, ___) => const SizedBox(height: 48),
+              errorBuilder: (ctx, err, stack) => const SizedBox(height: 48),
             ),
             const SizedBox(height: 48),
             const Text(
