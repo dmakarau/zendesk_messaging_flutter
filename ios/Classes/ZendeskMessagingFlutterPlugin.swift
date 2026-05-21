@@ -176,16 +176,15 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
         guard let channel = callbackChannel else { return true }
         // Dart handler returns true if the app handles the URL (so SDK should NOT open it).
         // SDK expects true = SDK handles it, false = app handles it. So we invert.
+        // Called on main thread (ConversationViewCoordinator) — invoke directly without re-dispatching.
         var appHandles = false
         let semaphore = DispatchSemaphore(value: 0)
-        DispatchQueue.main.async {
-            channel.invokeMethod("shouldHandleURL",
-                arguments: ["url": url.absoluteString, "source": urlSourceName(source)]) { reply in
-                appHandles = reply as? Bool ?? false
-                semaphore.signal()
-            }
+        channel.invokeMethod("shouldHandleURL",
+            arguments: ["url": url.absoluteString, "source": urlSourceName(source)]) { reply in
+            appHandles = reply as? Bool ?? false
+            semaphore.signal()
         }
-        let _ = semaphore.wait(timeout: .now() + 0.2)
+        semaphore.wait(timeout: .now() + 0.2)
         return !appHandles  // SDK handles if app does NOT handle
     }
 
@@ -231,7 +230,6 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
                 "totalUnreadCount": data.totalUnreadMessagesCount,
                 "conversationId": data.conversationId,
                 "unreadInConversation": data.unreadCountInConversation,
-                "count": data.totalUnreadMessagesCount,
             ]
         case .authenticationFailed:
             return ["type": "authenticationFailed"]

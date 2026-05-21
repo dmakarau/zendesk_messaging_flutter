@@ -15,15 +15,23 @@ class ZendeskMessaging {
 
   static Future<bool> Function(String url, String source)? _urlHandler;
   static Future<String> Function()? _authHandler;
+  static bool _callbackHandlerRegistered = false;
+
+  static void _ensureCallbackHandler() {
+    if (!_callbackHandlerRegistered) {
+      _callbacks.setMethodCallHandler(_onCallback);
+      _callbackHandlerRegistered = true;
+    }
+  }
 
   static void setUrlHandler(Future<bool> Function(String url, String source) handler) {
     _urlHandler = handler;
-    _callbacks.setMethodCallHandler(_onCallback);
+    _ensureCallbackHandler();
   }
 
   static void setAuthHandler(Future<String> Function() handler) {
     _authHandler = handler;
-    _callbacks.setMethodCallHandler(_onCallback);
+    _ensureCallbackHandler();
   }
 
   static Future<dynamic> _onCallback(MethodCall call) async {
@@ -43,6 +51,7 @@ class ZendeskMessaging {
   }
 
   static Future<void> invalidate() {
+    _eventStream = null;
     return _channel.invokeMethod('invalidate');
   }
 

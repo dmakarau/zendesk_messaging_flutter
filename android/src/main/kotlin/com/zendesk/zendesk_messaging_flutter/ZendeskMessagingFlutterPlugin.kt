@@ -45,8 +45,6 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
                 "totalUnreadCount" to event.data.totalUnreadMessagesCount,
                 "conversationId" to event.data.conversationId,
                 "unreadInConversation" to event.data.unreadCountInConversation,
-                // legacy key kept for compatibility
-                "count" to event.data.totalUnreadMessagesCount,
             )
             is ZendeskEvent.AuthenticationFailed -> mapOf("type" to "authenticationFailed")
             is ZendeskEvent.FieldValidationFailed -> mapOf("type" to "fieldValidationFailed")
@@ -397,24 +395,32 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
         zendesk.android.messaging.Messaging.setDelegate(object : MessagingDelegate() {
             // SDK expects: true = SDK handles (opens URL), false = app handles.
             // Dart handler returns: true = app handles. So we invert.
+            // Called on main thread (Fragment lifecycleScope) — invoke directly without posting.
             override fun shouldHandleUrl(url: String, urlSource: UrlSource): Boolean {
                 var appHandles = false
                 val latch = CountDownLatch(1)
-                mainHandler.post {
-                    callbackChannel.invokeMethod(
-                        "shouldHandleURL",
-                        mapOf("url" to url, "source" to urlSource.name.lowercase()),
-                        object : Result {
-                            override fun success(r: Any?) { appHandles = r as? Boolean ?: false; latch.countDown() }
-                            override fun error(c: String, m: String?, d: Any?) { latch.countDown() }
-                            override fun notImplemented() { latch.countDown() }
-                        }
-                    )
-                }
+                callbackChannel.invokeMethod(
+                    "shouldHandleURL",
+                    mapOf("url" to url, "source" to urlSourceName(urlSource)),
+                    object : Result {
+                        override fun success(r: Any?) { appHandles = r as? Boolean ?: false; latch.countDown() }
+                        override fun error(c: String, m: String?, d: Any?) { latch.countDown() }
+                        override fun notImplemented() { latch.countDown() }
+                    }
+                )
                 latch.await(200, TimeUnit.MILLISECONDS)
                 return !appHandles  // SDK handles if app does NOT handle
             }
         })
+    }
+
+    private fun urlSourceName(source: UrlSource): String = when (source) {
+        UrlSource.TEXT -> "text"
+        UrlSource.CAROUSEL -> "carousel"
+        UrlSource.FILE -> "file"
+        UrlSource.IMAGE -> "image"
+        UrlSource.LINK_MESSAGE_ACTION -> "linkMessageAction"
+        UrlSource.WEBVIEW_MESSAGE_ACTION -> "webViewMessageAction"
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
