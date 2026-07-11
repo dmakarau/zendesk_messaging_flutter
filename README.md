@@ -105,23 +105,41 @@ ZendeskMessaging.events.listen((event) {
 
 ### URL interception
 
+The native SDK decides *synchronously* whether to open a tapped link, so the
+decision can't round-trip to Dart in real time. Instead you declare a policy up
+front. When the app is responsible for a link, it arrives as a `UrlClickedEvent`
+on the `events` stream (fire-and-forget — the SDK never blocks).
+
 ```dart
-ZendeskMessaging.setUrlHandler((url, source) async {
-  // Return true to handle it yourself; false to let the SDK open it.
-  if (url.startsWith('myapp://')) {
-    handleDeepLink(url);
-    return true;
+// The SDK opens no links; every tap is forwarded to Dart:
+await ZendeskMessaging.setUrlPolicy(UrlHandlingPolicy.appHandlesAll);
+
+// …or intercept only links whose URL contains one of these substrings,
+// letting the SDK open everything else:
+await ZendeskMessaging.setUrlPolicy(
+  UrlHandlingPolicy.appHandlesMatching,
+  patterns: ['myapp://', 'example.com/deep'],
+);
+
+ZendeskMessaging.events.listen((event) {
+  if (event is UrlClickedEvent) {
+    handleDeepLink(event.url); // e.g. Navigator / url_launcher
   }
-  return false;
 });
 ```
 
-### Authentication delegate
+The default (`UrlHandlingPolicy.sdkOpens`) opens every link in the browser.
+
+### Authentication (token expiry)
+
+There is no blocking auth delegate. Follow the SDK's documented flow: listen for
+`AuthenticationFailedEvent`, fetch a fresh JWT, and log in again.
 
 ```dart
-ZendeskMessaging.setAuthHandler(() async {
-  // Called when the SDK's JWT expires. Return a fresh token.
-  return await fetchFreshJwt();
+ZendeskMessaging.events.listen((event) async {
+  if (event is AuthenticationFailedEvent) {
+    await ZendeskMessaging.loginUser(jwt: await fetchFreshJwt());
+  }
 });
 ```
 
@@ -208,15 +226,15 @@ await ZendeskMessaging.enableAnalyticsTracking(enabled: true);
 | `displayNotification(messageData)` | `Future<void>` | Display notification (Android only). |
 | `setNotificationSmallIconResourceName(name)` | `Future<void>` | Set notification icon (Android only). |
 | `enableAnalyticsTracking(enabled:)` | `Future<void>` | Toggle internal analytics. |
-| `setUrlHandler(handler)` | `void` | Intercept URL taps in the messaging UI. |
-| `setAuthHandler(handler)` | `void` | Provide a fresh JWT on auth expiry. |
+| `setUrlPolicy(policy, {patterns})` | `Future<void>` | Declare how tapped links are handled (see URL interception). |
 | `events` | `Stream<ZendeskEvent>` | Stream of all typed SDK events. |
 
 ### Event types
 
-`ZendeskEvent` is a sealed class. All 24 SDK events are covered:
+`ZendeskEvent` is a sealed class. All SDK events are covered, plus a synthetic
+`UrlClickedEvent` emitted when the app is responsible for a tapped link:
 
-`UnreadMessageCountChangedEvent`, `AuthenticationFailedEvent`, `FieldValidationFailedEvent`, `ConnectionStatusChangedEvent`, `ConversationAddedEvent`, `ConversationStartedEvent`, `ConversationOpenedEvent`, `MessagesShownEvent`, `SendMessageFailedEvent`, `MessagingOpenedEvent`, `MessagingClosedEvent`, `NewConversationButtonClickedEvent`, `ProactiveMessageDisplayedEvent`, `ProactiveMessageClickedEvent`, `ConversationWithAgentRequestedEvent`, `ConversationAgentAssignedEvent`, `ConversationServedByAgentEvent`, `PostbackButtonClickedEvent`, `ConversationExtensionOpenedEvent`, `ConversationExtensionDisplayedEvent`, `ArticleClickedEvent`, `ArticleBrowserClickedEvent`, `NotificationDisplayedEvent`, `NotificationOpenedEvent`
+`UnreadMessageCountChangedEvent`, `AuthenticationFailedEvent`, `FieldValidationFailedEvent` (Android only), `ConnectionStatusChangedEvent`, `ConversationAddedEvent`, `ConversationStartedEvent`, `ConversationOpenedEvent`, `MessagesShownEvent`, `SendMessageFailedEvent`, `MessagingOpenedEvent`, `MessagingClosedEvent`, `NewConversationButtonClickedEvent`, `ProactiveMessageDisplayedEvent`, `ProactiveMessageClickedEvent`, `ConversationWithAgentRequestedEvent`, `ConversationAgentAssignedEvent`, `ConversationServedByAgentEvent`, `PostbackButtonClickedEvent`, `ConversationExtensionOpenedEvent`, `ConversationExtensionDisplayedEvent`, `ArticleClickedEvent`, `ArticleBrowserClickedEvent`, `NotificationDisplayedEvent`, `NotificationOpenedEvent`, `MetadataSuccessEvent`, `MetadataFailureEvent`, `UrlClickedEvent`
 
 ## Requirements
 
@@ -226,13 +244,16 @@ await ZendeskMessaging.enableAnalyticsTracking(enabled: true);
 
 ## How it works
 
-Three Flutter channels bridge Dart to the native SDKs:
+Two Flutter channels bridge Dart to the native SDKs:
 
 | Channel | Direction | Purpose |
 |---|---|---|
 | `MethodChannel("zendesk_messaging")` | Dart → Native | All method calls |
-| `EventChannel("zendesk_messaging/events")` | Native → Dart | SDK events |
-| `MethodChannel("zendesk_messaging/callbacks")` | Native → Dart | URL interception, auth delegate |
+| `EventChannel("zendesk_messaging/events")` | Native → Dart | SDK events (incl. `urlClicked`) |
 
-- **iOS** — Swift plugin conforming to `MessagingDelegate` and `AuthenticationDelegate`. `show()` presents the native `ConversationViewController` wrapped in a `UINavigationController`.
+URL taps and auth expiry are surfaced as events on the `events` stream rather
+than through a blocking reverse channel — the native URL delegate is synchronous
+and cannot wait for a Dart reply without deadlocking the UI thread.
+
+- **iOS** — Swift plugin conforming to `MessagingDelegate`. `show()` presents the native `ConversationViewController` wrapped in a `UINavigationController`.
 - **Android** — Kotlin plugin using the public `zendesk.messaging:messaging-android` SDK. `show()` launches the native messaging Activity (always full-screen on Android).

@@ -1,6 +1,7 @@
 package com.zendesk.zendesk_messaging_flutter
 
 import android.app.Activity
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -12,7 +13,6 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import zendesk.android.Zendesk
-import zendesk.android.ZendeskAuthenticationDelegate
 import zendesk.android.events.ZendeskEvent
 import zendesk.android.events.ZendeskEventListener
 import zendesk.android.messaging.MessagingDelegate
@@ -20,8 +20,6 @@ import zendesk.android.messaging.UrlSource
 import zendesk.android.pageviewevents.PageView
 import zendesk.messaging.android.DefaultMessagingFactory
 import zendesk.messaging.android.push.PushNotifications
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import zendesk.android.messaging.MessagingScreen as ZDKMessagingScreen
 
 class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
@@ -29,10 +27,15 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
 
     private lateinit var methodChannel: MethodChannel
     private lateinit var eventChannel: EventChannel
-    private lateinit var callbackChannel: MethodChannel
+    private var applicationContext: Context? = null
     private var activity: Activity? = null
     private var eventSink: EventChannel.EventSink? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    // URL handling policy (set from Dart via setUrlPolicy). Native decides
+    // synchronously; intercepted links are forwarded as a `urlClicked` event.
+    private var urlPolicy: String = "sdkOpens"
+    private var urlPatterns: List<String> = emptyList()
 
     companion object {
         private var initialized = false
@@ -50,7 +53,7 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
             is ZendeskEvent.FieldValidationFailed -> mapOf("type" to "fieldValidationFailed")
             is ZendeskEvent.ConnectionStatusChanged -> mapOf(
                 "type" to "connectionStatusChanged",
-                "status" to event.connectionStatus.name.lowercase(),
+                "status" to enumToCamel(event.connectionStatus.name),
             )
             is ZendeskEvent.ConversationAdded -> mapOf(
                 "type" to "conversationAdded",
@@ -58,23 +61,23 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
             )
             is ZendeskEvent.ConversationStarted -> mapOf(
                 "type" to "conversationStarted",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "conversationId" to event.conversationId,
                 "timestamp" to event.timestamp,
             )
             is ZendeskEvent.ConversationOpened -> mapOf(
                 "type" to "conversationOpened",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "conversationId" to event.conversationId,
                 "timestamp" to event.timestamp,
             )
             is ZendeskEvent.MessagesShown -> mapOf(
                 "type" to "messagesShown",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "conversationId" to event.conversationId,
                 "timestamp" to event.timestamp,
                 "messages" to event.messages.map {
-                    mapOf("id" to it.id, "role" to it.role.name.lowercase(), "timestamp" to it.timestamp)
+                    mapOf("id" to it.id, "role" to enumToCamel(it.role.name), "timestamp" to it.timestamp)
                 },
             )
             is ZendeskEvent.SendMessageFailed -> mapOf(
@@ -83,127 +86,122 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
             )
             is ZendeskEvent.MessagingOpened -> mapOf(
                 "type" to "messagingOpened",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
             )
             is ZendeskEvent.MessagingClosed -> mapOf(
                 "type" to "messagingClosed",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
             )
             is ZendeskEvent.NewConversationButtonClicked -> mapOf(
                 "type" to "newConversationButtonClicked",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
-                "source" to event.data.newConversationSource.name.lowercase(),
+                "source" to enumToCamel(event.data.newConversationSource.name),
             )
             is ZendeskEvent.ProactiveMessageDisplayed -> mapOf(
                 "type" to "proactiveMessageDisplayed",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "proactiveMessageId" to event.data.proactiveMessageId.toString(),
                 "campaignId" to event.data.campaignId,
             )
             is ZendeskEvent.ProactiveMessageClicked -> mapOf(
                 "type" to "proactiveMessageClicked",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "proactiveMessageId" to event.data.proactiveMessageId.toString(),
                 "campaignId" to event.data.campaignId,
             )
             is ZendeskEvent.ConversationWithAgentRequested -> mapOf(
                 "type" to "conversationWithAgentRequested",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "conversationId" to event.data.conversationId,
             )
             is ZendeskEvent.ConversationAgentAssigned -> mapOf(
                 "type" to "conversationAgentAssigned",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "conversationId" to event.data.conversationId,
             )
             is ZendeskEvent.ConversationServedByAgent -> mapOf(
                 "type" to "conversationServedByAgent",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "conversationId" to event.data.conversationId,
                 "agentId" to event.data.agentId,
                 "agentDisplayName" to event.data.agentDisplayName,
-                "agentMessageSource" to event.data.agentMessageSource.name.lowercase(),
+                "agentMessageSource" to enumToCamel(event.data.agentMessageSource.name),
             )
             is ZendeskEvent.PostbackButtonClicked -> mapOf(
                 "type" to "postbackButtonClicked",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "conversationId" to event.data.conversationId,
                 "actionName" to event.data.actionName,
             )
             is ZendeskEvent.ConversationExtensionOpened -> mapOf(
                 "type" to "conversationExtensionOpened",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "conversationId" to event.data.conversationId,
                 "url" to event.data.url,
             )
             is ZendeskEvent.ConversationExtensionDisplayed -> mapOf(
                 "type" to "conversationExtensionDisplayed",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "conversationId" to event.data.conversationId,
                 "url" to event.data.url,
             )
             is ZendeskEvent.ArticleClicked -> mapOf(
                 "type" to "articleClicked",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "articleId" to event.data.articleId.toString(),
                 "articleTitle" to event.data.articleTitle,
             )
             is ZendeskEvent.ArticleBrowserClicked -> mapOf(
                 "type" to "articleBrowserClicked",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "url" to event.data.url,
             )
             is ZendeskEvent.NotificationDisplayed -> mapOf(
                 "type" to "notificationDisplayed",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "conversationId" to event.data.conversationId,
             )
             is ZendeskEvent.NotificationOpened -> mapOf(
                 "type" to "notificationOpened",
-                "id" to event.id,
+                "id" to event.id.toString(),
                 "timestamp" to event.timestamp,
                 "conversationId" to event.data.conversationId,
             )
+            is ZendeskEvent.MetadataSuccess -> mapOf("type" to "metadataSuccess")
+            is ZendeskEvent.MetadataFailure -> mapOf("type" to "metadataFailure")
             else -> return@ZendeskEventListener
         }
         mainHandler.post { eventSink?.success(map) }
     }
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        applicationContext = binding.applicationContext
         methodChannel = MethodChannel(binding.binaryMessenger, "zendesk_messaging")
         methodChannel.setMethodCallHandler(this)
         eventChannel = EventChannel(binding.binaryMessenger, "zendesk_messaging/events")
         eventChannel.setStreamHandler(this)
-        callbackChannel = MethodChannel(binding.binaryMessenger, "zendesk_messaging/callbacks")
-
-        Zendesk.authenticationDelegate = ZendeskAuthenticationDelegate { _, updateToken ->
-            mainHandler.post {
-                callbackChannel.invokeMethod("onInvalidAuth", null, object : Result {
-                    override fun success(r: Any?) { updateToken(r as? String ?: "") }
-                    override fun error(c: String, m: String?, d: Any?) {}
-                    override fun notImplemented() {}
-                })
-            }
-        }
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         methodChannel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
+        // Drop the process-global delegate so a torn-down plugin isn't retained/invoked.
+        zendesk.android.messaging.Messaging.setDelegate(null)
+        applicationContext = null
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -221,8 +219,8 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
             "initialize" -> {
                 val channelKey = call.argument<String>("channelKey")
                     ?: return result.error("INVALID_ARGS", "channelKey is required", null)
-                val ctx = activity?.applicationContext
-                    ?: return result.error("NO_ACTIVITY", "No activity available", null)
+                val ctx = applicationContext
+                    ?: return result.error("NO_CONTEXT", "Plugin not attached to engine", null)
                 if (initialized) return result.success(null)
 
                 Zendesk.initialize(
@@ -251,7 +249,7 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
                             mapOf(
                                 "id" to it.id,
                                 "externalId" to it.externalId,
-                                "authenticationType" to it.authenticationType.name.lowercase(),
+                                "authenticationType" to enumToCamel(it.authenticationType.name),
                             )
                         })
                     },
@@ -345,8 +343,8 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
             }
 
             "displayNotification" -> {
-                val ctx = activity?.applicationContext
-                    ?: return result.error("NO_ACTIVITY", "No activity available", null)
+                val ctx = applicationContext
+                    ?: return result.error("NO_CONTEXT", "Plugin not attached to engine", null)
                 val messageData = call.argument<Map<String, String>>("messageData") ?: emptyMap()
                 PushNotifications.displayNotification(ctx, messageData)
                 result.success(null)
@@ -355,8 +353,8 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
             "setNotificationSmallIconResourceName" -> {
                 val resourceName = call.argument<String>("resourceName")
                     ?: return result.error("INVALID_ARGS", "resourceName is required", null)
-                val ctx = activity?.applicationContext
-                    ?: return result.error("NO_ACTIVITY", "No activity available", null)
+                val ctx = applicationContext
+                    ?: return result.error("NO_CONTEXT", "Plugin not attached to engine", null)
                 val resId = ctx.resources.getIdentifier(resourceName, "drawable", ctx.packageName)
                 PushNotifications.setNotificationSmallIconId(if (resId != 0) resId else null)
                 result.success(null)
@@ -365,6 +363,12 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
             "enableAnalyticsTracking" -> {
                 val enabled = call.argument<Boolean>("enabled") ?: true
                 Zendesk.instance.messaging.enableAnalyticsTracking(enabled)
+                result.success(null)
+            }
+
+            "setUrlPolicy" -> {
+                urlPolicy = call.argument<String>("policy") ?: "sdkOpens"
+                urlPatterns = call.argument<List<String>>("patterns") ?: emptyList()
                 result.success(null)
             }
 
@@ -393,23 +397,25 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
 
     private fun installMessagingDelegate() {
         zendesk.android.messaging.Messaging.setDelegate(object : MessagingDelegate() {
-            // SDK expects: true = SDK handles (opens URL), false = app handles.
-            // Dart handler returns: true = app handles. So we invert.
-            // Called on main thread (Fragment lifecycleScope) — invoke directly without posting.
+            // Called synchronously on the main thread. Return true = SDK opens the
+            // URL, false = the app is responsible. We decide from the pre-registered
+            // policy (no Dart round-trip) and, when the app is responsible, emit a
+            // `urlClicked` event fire-and-forget so Dart can act on it.
             override fun shouldHandleUrl(url: String, urlSource: UrlSource): Boolean {
-                var appHandles = false
-                val latch = CountDownLatch(1)
-                callbackChannel.invokeMethod(
-                    "shouldHandleURL",
-                    mapOf("url" to url, "source" to urlSourceName(urlSource)),
-                    object : Result {
-                        override fun success(r: Any?) { appHandles = r as? Boolean ?: false; latch.countDown() }
-                        override fun error(c: String, m: String?, d: Any?) { latch.countDown() }
-                        override fun notImplemented() { latch.countDown() }
-                    }
-                )
-                latch.await(200, TimeUnit.MILLISECONDS)
-                return !appHandles  // SDK handles if app does NOT handle
+                val appHandles = when (urlPolicy) {
+                    "appHandlesAll" -> true
+                    "appHandlesMatching" -> urlPatterns.any { url.contains(it) }
+                    else -> false  // "sdkOpens"
+                }
+                if (appHandles) {
+                    val payload = mapOf(
+                        "type" to "urlClicked",
+                        "url" to url,
+                        "source" to urlSourceName(urlSource),
+                    )
+                    mainHandler.post { eventSink?.success(payload) }
+                }
+                return !appHandles  // SDK handles the URL only if the app does not
             }
         })
     }
@@ -421,6 +427,17 @@ class ZendeskMessagingFlutterPlugin : FlutterPlugin, MethodCallHandler, Activity
         UrlSource.IMAGE -> "image"
         UrlSource.LINK_MESSAGE_ACTION -> "linkMessageAction"
         UrlSource.WEBVIEW_MESSAGE_ACTION -> "webViewMessageAction"
+    }
+
+    // Normalizes an SDK enum constant (SCREAMING_SNAKE_CASE) to the exact
+    // camelCase string the iOS side emits and the Dart layer expects — e.g.
+    // CONNECTING_REALTIME -> "connectingRealtime", SESSION_TOKEN -> "sessionToken".
+    // (UrlSource keeps its own explicit mapping above for the WebView casing.)
+    private fun enumToCamel(name: String): String {
+        val parts = name.lowercase().split("_")
+        return parts.first() + parts.drop(1).joinToString("") { part ->
+            part.replaceFirstChar { it.uppercaseChar() }
+        }
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {

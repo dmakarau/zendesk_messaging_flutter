@@ -7,42 +7,8 @@ export 'src/zendesk_models.dart';
 class ZendeskMessaging {
   static const _channel = MethodChannel('zendesk_messaging');
   static const _events = EventChannel('zendesk_messaging/events');
-  static const _callbacks = MethodChannel('zendesk_messaging/callbacks');
 
   static Stream<ZendeskEvent>? _eventStream;
-
-  // ── Delegate handlers ───────────────────────────────────────────────────
-
-  static Future<bool> Function(String url, String source)? _urlHandler;
-  static Future<String> Function()? _authHandler;
-  static bool _callbackHandlerRegistered = false;
-
-  static void _ensureCallbackHandler() {
-    if (!_callbackHandlerRegistered) {
-      _callbacks.setMethodCallHandler(_onCallback);
-      _callbackHandlerRegistered = true;
-    }
-  }
-
-  static void setUrlHandler(Future<bool> Function(String url, String source) handler) {
-    _urlHandler = handler;
-    _ensureCallbackHandler();
-  }
-
-  static void setAuthHandler(Future<String> Function() handler) {
-    _authHandler = handler;
-    _ensureCallbackHandler();
-  }
-
-  static Future<dynamic> _onCallback(MethodCall call) async {
-    switch (call.method) {
-      case 'shouldHandleURL':
-        final args = call.arguments as Map;
-        return _urlHandler?.call(args['url'] as String, args['source'] as String) ?? false;
-      case 'onInvalidAuth':
-        return _authHandler?.call() ?? '';
-    }
-  }
 
   // ── Core ────────────────────────────────────────────────────────────────
 
@@ -77,6 +43,25 @@ class ZendeskMessaging {
     return _channel.invokeMethod('show', {
       'fullScreen': fullScreen,
       ...screen.toMap(),
+    });
+  }
+
+  // ── URL handling ────────────────────────────────────────────────────────
+
+  /// Declares how the native SDK should treat links tapped inside the
+  /// messaging UI. See [UrlHandlingPolicy]. When native decides the app is
+  /// responsible for a link, it is delivered as a [UrlClickedEvent] on the
+  /// [events] stream (fire-and-forget — the SDK never blocks waiting for Dart).
+  ///
+  /// For [UrlHandlingPolicy.appHandlesMatching], [patterns] are substrings
+  /// matched against each tapped link's absolute URL string.
+  static Future<void> setUrlPolicy(
+    UrlHandlingPolicy policy, {
+    List<String> patterns = const [],
+  }) {
+    return _channel.invokeMethod('setUrlPolicy', {
+      'policy': policy.name,
+      'patterns': patterns,
     });
   }
 

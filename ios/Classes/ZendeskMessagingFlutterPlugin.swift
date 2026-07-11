@@ -4,10 +4,14 @@ import ZendeskSDKMessaging
 import ZendeskSDK
 
 public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
-    MessagingDelegate, AuthenticationDelegate {
+    MessagingDelegate {
 
     private var eventSink: FlutterEventSink?
-    private var callbackChannel: FlutterMethodChannel?
+
+    // URL handling policy (set from Dart via setUrlPolicy). Native decides
+    // synchronously; intercepted links are forwarded as a `urlClicked` event.
+    private var urlPolicy: String = "sdkOpens"
+    private var urlPatterns: [String] = []
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let methodChannel = FlutterMethodChannel(
@@ -18,12 +22,7 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
             name: "zendesk_messaging/events",
             binaryMessenger: registrar.messenger()
         )
-        let callbackChannel = FlutterMethodChannel(
-            name: "zendesk_messaging/callbacks",
-            binaryMessenger: registrar.messenger()
-        )
         let instance = ZendeskMessagingFlutterPlugin()
-        instance.callbackChannel = callbackChannel
         registrar.addMethodCallDelegate(instance, channel: methodChannel)
         eventChannel.setStreamHandler(instance)
     }
@@ -43,7 +42,6 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
                 switch initResult {
                 case .success:
                     Messaging.delegate = self
-                    Zendesk.authenticationDelegate = self
                     result(nil)
                 case .failure(let error):
                     result(FlutterError(code: "INIT_FAILED", message: error.localizedDescription, details: nil))
@@ -149,7 +147,9 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
             guard let tokenHex = args?["token"] as? String else {
                 return result(FlutterError(code: "INVALID_ARGS", message: "token is required", details: nil))
             }
-            let tokenData = Data(hexString: tokenHex)
+            guard let tokenData = Data(hexString: tokenHex) else {
+                return result(FlutterError(code: "INVALID_ARGS", message: "token is not valid hex", details: nil))
+            }
             PushNotifications.updatePushNotificationToken(tokenData)
             result(nil)
 
@@ -165,6 +165,11 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
             Zendesk.instance?.messaging?.enableInternalAnalytics(enabled: enabled)
             result(nil)
 
+        case "setUrlPolicy":
+            urlPolicy = args?["policy"] as? String ?? "sdkOpens"
+            urlPatterns = args?["patterns"] as? [String] ?? []
+            result(nil)
+
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -172,31 +177,27 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
 
     // MARK: - MessagingDelegate
 
+    // Called synchronously on the main thread. `true` = SDK opens the URL,
+    // `false` = the app is responsible. We decide from the pre-registered
+    // policy (no Dart round-trip) and, when the app is responsible, emit a
+    // `urlClicked` event fire-and-forget so Dart can act on it.
     public func messaging(_ messaging: Messaging, shouldHandleURL url: URL, from source: URLSource) -> Bool {
-        guard let channel = callbackChannel else { return true }
-        // Dart handler returns true if the app handles the URL (so SDK should NOT open it).
-        // SDK expects true = SDK handles it, false = app handles it. So we invert.
-        // Called on main thread (ConversationViewCoordinator) — invoke directly without re-dispatching.
-        var appHandles = false
-        let semaphore = DispatchSemaphore(value: 0)
-        channel.invokeMethod("shouldHandleURL",
-            arguments: ["url": url.absoluteString, "source": urlSourceName(source)]) { reply in
-            appHandles = reply as? Bool ?? false
-            semaphore.signal()
+        let appHandles: Bool
+        switch urlPolicy {
+        case "appHandlesAll":
+            appHandles = true
+        case "appHandlesMatching":
+            let absolute = url.absoluteString
+            appHandles = urlPatterns.contains { absolute.contains($0) }
+        default:  // "sdkOpens"
+            appHandles = false
         }
-        semaphore.wait(timeout: .now() + 0.2)
-        return !appHandles  // SDK handles if app does NOT handle
-    }
-
-    // MARK: - AuthenticationDelegate
-
-    public func onInvalidAuth(error: Error?, completion: @escaping (String) -> Void) {
-        guard let channel = callbackChannel else { completion(""); return }
-        DispatchQueue.main.async {
-            channel.invokeMethod("onInvalidAuth", arguments: nil) { reply in
-                completion(reply as? String ?? "")
-            }
+        if appHandles {
+            let sink = eventSink
+            let payload: [String: Any] = ["type": "urlClicked", "url": url.absoluteString, "source": urlSourceName(source)]
+            DispatchQueue.main.async { sink?(payload) }
         }
+        return !appHandles  // SDK handles the URL only if the app does not
     }
 
     // MARK: - FlutterStreamHandler
@@ -281,6 +282,10 @@ public class ZendeskMessagingFlutterPlugin: NSObject, FlutterPlugin, FlutterStre
             return ["type": "notificationDisplayed", "id": id.uuidString, "timestamp": Int(ts.timeIntervalSince1970 * 1000), "conversationId": data.conversationId]
         case .notificationOpened(id: let id, timestamp: let ts, data: let data):
             return ["type": "notificationOpened", "id": id.uuidString, "timestamp": Int(ts.timeIntervalSince1970 * 1000), "conversationId": data.conversationId]
+        case .metadataSuccess:
+            return ["type": "metadataSuccess"]
+        case .metadataFailure:
+            return ["type": "metadataFailure"]
         default:
             return nil
         }
@@ -385,13 +390,17 @@ private extension UIApplication {
 // MARK: - Data hex extension
 
 private extension Data {
-    init(hexString: String) {
+    /// Parses an even-length, fully hexadecimal string. Returns `nil` for any
+    /// malformed input rather than silently forwarding a truncated token.
+    init?(hexString: String) {
         let clean = hexString.replacingOccurrences(of: " ", with: "")
+        guard !clean.isEmpty, clean.count % 2 == 0 else { return nil }
         var data = Data(capacity: clean.count / 2)
         var index = clean.startIndex
         while index < clean.endIndex {
-            let next = clean.index(index, offsetBy: 2, limitedBy: clean.endIndex) ?? clean.endIndex
-            if let byte = UInt8(clean[index..<next], radix: 16) { data.append(byte) }
+            let next = clean.index(index, offsetBy: 2)
+            guard let byte = UInt8(clean[index..<next], radix: 16) else { return nil }
+            data.append(byte)
             index = next
         }
         self = data

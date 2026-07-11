@@ -70,6 +70,29 @@ final class ConversationScreen extends MessagingScreen {
       };
 }
 
+// ── URL handling ────────────────────────────────────────────────────────────
+
+/// How the native SDK should treat links tapped inside the messaging UI.
+///
+/// The SDK asks its delegate *synchronously* whether it should open a tapped
+/// link, so the decision cannot round-trip to Dart in real time. Instead the
+/// app declares a policy up front. Whenever native decides the app is
+/// responsible for a link (rather than the SDK opening it in a browser), the
+/// URL is delivered to Dart as a [UrlClickedEvent] on the [ZendeskMessaging.events]
+/// stream — fire-and-forget, no blocking.
+enum UrlHandlingPolicy {
+  /// Default. The SDK opens every tapped link itself (external browser).
+  sdkOpens,
+
+  /// The SDK opens no links; every tapped link is forwarded to Dart as a
+  /// [UrlClickedEvent] for the app to handle (deep-link, url_launcher, …).
+  appHandlesAll,
+
+  /// The SDK opens links unless their absolute URL string contains one of the
+  /// registered patterns; matching links are forwarded as [UrlClickedEvent].
+  appHandlesMatching,
+}
+
 // ── Push ──────────────────────────────────────────────────────────────────
 
 enum PushResponsibility {
@@ -211,6 +234,12 @@ sealed class ZendeskEvent {
           id: map['id'] as String,
           timestamp: map['timestamp'] as int,
           conversationId: map['conversationId'] as String,
+        ),
+      'metadataSuccess' => const MetadataSuccessEvent(),
+      'metadataFailure' => const MetadataFailureEvent(),
+      'urlClicked' => UrlClickedEvent(
+          url: map['url'] as String,
+          source: map['source'] as String,
         ),
       _ => null,
     };
@@ -437,4 +466,22 @@ class NotificationOpenedEvent extends ZendeskEvent {
   final String id;
   final int timestamp;
   final String conversationId;
+}
+
+class MetadataSuccessEvent extends ZendeskEvent {
+  const MetadataSuccessEvent();
+}
+
+class MetadataFailureEvent extends ZendeskEvent {
+  const MetadataFailureEvent();
+}
+
+/// Emitted when a link tapped inside the messaging UI is the app's
+/// responsibility to handle (per the active [UrlHandlingPolicy]) instead of
+/// being opened by the SDK. [source] indicates where the link was tapped
+/// (e.g. `text`, `carousel`, `linkMessageAction`).
+class UrlClickedEvent extends ZendeskEvent {
+  const UrlClickedEvent({required this.url, required this.source});
+  final String url;
+  final String source;
 }

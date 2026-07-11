@@ -277,6 +277,26 @@ void main() {
       expect(e.conversationId, 'c-9');
     });
 
+    test('metadataSuccess', () {
+      expect(ZendeskEvent.fromMap({'type': 'metadataSuccess'}),
+          isA<MetadataSuccessEvent>());
+    });
+
+    test('metadataFailure', () {
+      expect(ZendeskEvent.fromMap({'type': 'metadataFailure'}),
+          isA<MetadataFailureEvent>());
+    });
+
+    test('urlClicked', () {
+      final e = ZendeskEvent.fromMap({
+        'type': 'urlClicked',
+        'url': 'https://example.com/help',
+        'source': 'linkMessageAction',
+      }) as UrlClickedEvent;
+      expect(e.url, 'https://example.com/help');
+      expect(e.source, 'linkMessageAction');
+    });
+
     test('unknown type returns null', () {
       expect(ZendeskEvent.fromMap({'type': 'unknownEvent'}), isNull);
     });
@@ -385,6 +405,51 @@ void main() {
     test('unknown defaults to notFromMessaging', () {
       expect(PushResponsibility.fromString('garbage'),
           PushResponsibility.notFromMessaging);
+    });
+  });
+
+  // ── Cross-platform enum parity ───────────────────────────────────────────
+  //
+  // The Android side normalizes SDK enum constants (SCREAMING_SNAKE_CASE) to
+  // camelCase with `enumToCamel`; iOS emits the same camelCase strings via
+  // explicit `switch`es. This replicates `enumToCamel` and pins the exact wire
+  // strings both platforms must produce, so a regression to `.name.lowercase()`
+  // (which drops the camel humps) fails here.
+
+  String enumToCamel(String name) {
+    final parts = name.toLowerCase().split('_');
+    return parts.first +
+        parts
+            .skip(1)
+            .map((p) => p.isEmpty ? p : p[0].toUpperCase() + p.substring(1))
+            .join();
+  }
+
+  group('enum parity (Android enumToCamel ↔ iOS camelCase)', () {
+    const cases = <String, String>{
+      // ConnectionStatus
+      'DISCONNECTED': 'disconnected',
+      'CONNECTED': 'connected',
+      'CONNECTING_REALTIME': 'connectingRealtime',
+      'CONNECTED_REALTIME': 'connectedRealtime',
+      // AuthenticationType
+      'JWT': 'jwt',
+      'SESSION_TOKEN': 'sessionToken',
+      'UNAUTHENTICATED': 'unauthenticated',
+      // AgentMessageSource
+      'AGENT_WORKSPACE': 'agentWorkspace',
+      'AGENT_COPILOT': 'agentCopilot',
+      // NewConversationSource
+      'CONVERSATION_LIST': 'conversationList',
+      // Message role
+      'USER': 'user',
+      'BUSINESS': 'business',
+    };
+
+    cases.forEach((sdkConstant, expectedWire) {
+      test('$sdkConstant → $expectedWire', () {
+        expect(enumToCamel(sdkConstant), expectedWire);
+      });
     });
   });
 }

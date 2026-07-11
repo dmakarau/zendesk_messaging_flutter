@@ -9,6 +9,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final channelKey = Platform.isAndroid ? _androidChannelKey : _iosChannelKey;
   await ZendeskMessaging.initialize(channelKey: channelKey);
+  // Let the app handle every tapped link itself (delivered as UrlClickedEvent)
+  // instead of the SDK opening them in a browser. Use appHandlesMatching +
+  // patterns for per-link granularity.
+  await ZendeskMessaging.setUrlPolicy(UrlHandlingPolicy.appHandlesAll);
   runApp(const MyApp());
 }
 
@@ -39,14 +43,46 @@ class _HomeScreenState extends State<HomeScreen> {
   int _unreadCount = 0;
   bool _loggedIn = false;
 
+  /// The most recent JWT, so we can transparently re-login when the SDK
+  /// reports the session's token has expired (AuthenticationFailedEvent).
+  String? _lastJwt;
+
   @override
   void initState() {
     super.initState();
     ZendeskMessaging.events.listen((event) {
-      if (event is UnreadMessageCountChangedEvent) {
-        setState(() => _unreadCount = event.totalUnreadCount);
+      switch (event) {
+        case UnreadMessageCountChangedEvent():
+          setState(() => _unreadCount = event.totalUnreadCount);
+        case UrlClickedEvent():
+          // App is responsible for this link (per the active UrlHandlingPolicy):
+          // deep-link, open with url_launcher, etc. Here we just surface it.
+          _showSnack('Link tapped (${event.source}): ${event.url}');
+        case AuthenticationFailedEvent():
+          // The SDK's documented auth flow: on token expiry, fetch a fresh JWT
+          // and log in again. Fire-and-forget — no blocking delegate.
+          _handleAuthFailure();
+        default:
+          break;
       }
     });
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _handleAuthFailure() async {
+    // In a real app, request a new JWT from your backend here.
+    final jwt = _lastJwt;
+    if (jwt == null) {
+      _showSnack('Authentication expired — please log in again.');
+      setState(() => _loggedIn = false);
+      return;
+    }
+    await ZendeskMessaging.loginUser(jwt: jwt);
+    _showSnack('Session refreshed.');
   }
 
   Future<void> _showLoginDialog() async {
@@ -79,13 +115,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (jwt != null && jwt.isNotEmpty) {
       await ZendeskMessaging.loginUser(jwt: jwt);
-      setState(() => _loggedIn = true);
+      setState(() {
+        _lastJwt = jwt;
+        _loggedIn = true;
+      });
     }
   }
 
   Future<void> _logout() async {
     await ZendeskMessaging.logoutUser();
-    setState(() => _loggedIn = false);
+    setState(() {
+      _lastJwt = null;
+      _loggedIn = false;
+    });
   }
 
   @override
