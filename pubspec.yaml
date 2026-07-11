@@ -1,7 +1,9 @@
 name: zendesk_messaging_flutter
-description: "A new Flutter plugin project."
+description: "Unofficial Flutter plugin wrapping the public Zendesk Messaging SDKs for iOS and Android. Not affiliated with Zendesk."
 version: 0.0.1
-homepage:
+homepage: https://github.com/dmakarau/zendesk_messaging_flutter
+repository: https://github.com/dmakarau/zendesk_messaging_flutter
+issue_tracker: https://github.com/dmakarau/zendesk_messaging_flutter/issues
 
 environment:
   sdk: ^3.11.5
