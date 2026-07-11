@@ -2,6 +2,15 @@
 
 A Flutter plugin for the Zendesk Messaging SDK (iOS + Android). Lets Flutter developers integrate Zendesk Messaging with a few lines of Dart — no Xcode, no CocoaPods, no native code required.
 
+> **Disclaimer**
+>
+> This is an **unofficial, community-maintained** plugin. It is **not** built,
+> endorsed, or supported by Zendesk, and is not an official Zendesk product.
+> It is an independent wrapper around the **publicly available** Zendesk
+> Messaging SDKs, built solely from Zendesk's public developer documentation.
+> "Zendesk" and related marks are trademarks of Zendesk, Inc. For official
+> support, refer to the [Zendesk developer docs](https://developer.zendesk.com/documentation/zendesk-web-widget-sdks/).
+
 ## Installation
 
 Add to your `pubspec.yaml`:
